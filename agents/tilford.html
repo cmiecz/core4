@@ -64,12 +64,11 @@
   .album-btn:hover{background:var(--green);color:#000;}
   .album-btn.show{display:inline-block;}
   .badge-wrap{
-    display:none;
-    margin-top:30px;
     opacity:0;
+    visibility:hidden;
     transition:opacity 1.2s ease;
   }
-  .badge-wrap.show{display:block;opacity:1;}
+  .badge-wrap.show{opacity:1;visibility:visible;}
   .badge-label{
     font-family:'VT323',monospace;font-size:20px;letter-spacing:3px;
     color:var(--green-dim);margin-bottom:10px;
@@ -101,36 +100,207 @@
   @keyframes scan{
     0%{top:0%;}50%{top:98%;}100%{top:0%;}
   }
+  /* two-column layout: badge left, content right */
+  .layout{
+    display:flex;
+    gap:36px;
+    align-items:flex-start;
+    margin-top:24px;
+    flex-wrap:wrap;
+  }
+  .badge-wrap{
+    flex:0 0 300px;
+    order:1;
+  }
+  .content-col{
+    flex:1 1 340px;
+    order:2;
+    min-width:300px;
+  }
+  /* on narrow screens, stack: content first, badge below */
+  @media(max-width:760px){
+    .layout{gap:24px;}
+    .badge-wrap{flex:1 1 100%;order:2;display:flex;flex-direction:column;align-items:center;}
+    .content-col{flex:1 1 100%;order:1;}
+    .badge-frame{max-width:300px;}
+  }
+  .badge-frame{max-width:300px;width:100%;}
+  /* tap-to-begin gate */
+  #startGate{
+    position:fixed;inset:0;z-index:9999;
+    display:flex;align-items:center;justify-content:center;flex-direction:column;
+    background:rgba(0,6,0,0.96);
+    cursor:pointer;
+    text-shadow:0 0 8px var(--green-glow);
+  }
+  #startGate .gate-inner{text-align:center;}
+  #startGate .gate-title{
+    font-family:'VT323',monospace;font-size:clamp(34px,8vw,64px);letter-spacing:3px;
+    animation:blink 1.2s steps(1) infinite;
+  }
+  #startGate .gate-sub{
+    font-family:'Share Tech Mono',monospace;font-size:15px;letter-spacing:2px;
+    color:var(--green-dim);margin-top:14px;
+  }
+  @keyframes blink{50%{opacity:.25;}}
+  #muteBtn{
+    position:fixed;top:14px;right:14px;z-index:9999;
+    font-family:'Share Tech Mono',monospace;font-size:13px;letter-spacing:1px;
+    background:rgba(0,6,0,0.6);border:1px solid var(--green-dim);color:var(--green);
+    padding:6px 12px;cursor:pointer;text-shadow:0 0 6px var(--green-glow);
+    display:none;
+  }
+  #muteBtn.show{display:block;}
 </style>
 </head>
 <body>
+  <div id="startGate">
+    <div class="gate-inner">
+      <div class="gate-title">► TAP TO BEGIN</div>
+      <div class="gate-sub">SECURE AUDIO CHANNEL // TAP TO INITIALIZE</div>
+    </div>
+  </div>
+  <button id="muteBtn">♪ SOUND: ON</button>
   <div class="screen">
     <div class="header-line">
       <span>MIND FACTORY AGENCY</span>
       <span>AGENT TILFORD // CT-043</span>
     </div>
-    <div class="msg-text" id="msg"></div>
+    <div class="layout">
+      <!-- LEFT: Agent ID badge -->
+      <div class="badge-wrap" id="badgeWrap">
+        <div class="badge-label">► AGENT ID CREDENTIAL</div>
+        <div class="badge-frame">
+          <div class="scanline"></div>
+          <img src="../badges/tilford.png" alt="Agent TILFORD ID badge">
+        </div>
+      </div>
 
-    <!-- Pre-mission countdown -->
-    <div id="countdown-wrap">
-      <div id="countdown">--:--:--:--</div>
-      <div class="cd-labels"><span>DAYS</span><span>HRS</span><span>MIN</span><span>SEC</span></div>
-    </div>
+      <!-- RIGHT: message, countdown, button -->
+      <div class="content-col">
+        <div class="msg-text" id="msg"></div>
 
-    <!-- Agent ID badge -->
-    <div class="badge-wrap" id="badgeWrap">
-      <div class="badge-label">► AGENT ID CREDENTIAL</div>
-      <div class="badge-frame">
-        <div class="scanline"></div>
-        <img src="../badges/tilford.png" alt="Agent TILFORD ID badge">
+        <div id="countdown-wrap">
+          <div id="countdown">--:--:--:--</div>
+          <div class="cd-labels"><span>DAYS</span><span>HRS</span><span>MIN</span><span>SEC</span></div>
+        </div>
+
+        <a class="album-btn" id="albumBtn" href="https://photos.app.goo.gl/E5QZt88VVq8JuwR98" target="_blank" rel="noopener">► OPEN MISSION FILES</a>
       </div>
     </div>
-
-    <!-- Post-mission album button -->
-    <a class="album-btn" id="albumBtn" href="https://photos.app.goo.gl/E5QZt88VVq8JuwR98" target="_blank" rel="noopener">► OPEN MISSION FILES</a>
   </div>
 
 <script>
+/* ============ AUDIO ENGINE (Web Audio API) ============ */
+let AC = null;          // AudioContext
+let musicGain = null;   // master music volume
+let soundOn = true;
+let musicStarted = false;
+
+function initAudio(){
+  if(AC) return;
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  musicGain = AC.createGain();
+  musicGain.gain.value = 0.0;
+  musicGain.connect(AC.destination);
+}
+
+/* --- typewriter click: short filtered noise burst --- */
+function clickSound(){
+  if(!AC || !soundOn) return;
+  const dur = 0.018;
+  const buf = AC.createBuffer(1, AC.sampleRate*dur, AC.sampleRate);
+  const data = buf.getChannelData(0);
+  for(let i=0;i<data.length;i++){
+    data[i] = (Math.random()*2-1) * Math.pow(1 - i/data.length, 2);
+  }
+  const src = AC.createBufferSource(); src.buffer = buf;
+  const hp = AC.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=1200;
+  const g = AC.createGain(); g.gain.value = 0.16 + Math.random()*0.05;
+  src.connect(hp); hp.connect(g); g.connect(AC.destination);
+  src.start();
+}
+
+/* --- carriage 'ding' at end of a line --- */
+function dingSound(){
+  if(!AC || !soundOn) return;
+  const o = AC.createOscillator(); o.type='sine'; o.frequency.value=1760;
+  const g = AC.createGain(); g.gain.value=0.0;
+  o.connect(g); g.connect(AC.destination);
+  const t = AC.currentTime;
+  g.gain.linearRampToValueAtTime(0.12, t+0.005);
+  g.gain.exponentialRampToValueAtTime(0.001, t+0.35);
+  o.start(t); o.stop(t+0.36);
+}
+
+/* --- looping spy/synth theme: pulsing bass + tension pad + arp --- */
+function startMusic(){
+  if(!AC || musicStarted) return;
+  musicStarted = true;
+  musicGain.gain.linearRampToValueAtTime(0.5, AC.currentTime + 2.0);
+
+  const root = 55; // A1
+  // Pulsing bass (eighth notes)
+  const bassOsc = AC.createOscillator(); bassOsc.type='sawtooth'; bassOsc.frequency.value=root;
+  const bassFilt = AC.createBiquadFilter(); bassFilt.type='lowpass'; bassFilt.frequency.value=420; bassFilt.Q.value=6;
+  const bassGain = AC.createGain(); bassGain.gain.value=0;
+  bassOsc.connect(bassFilt); bassFilt.connect(bassGain); bassGain.connect(musicGain);
+  bassOsc.start();
+  const beat = 0.34; // ~ tempo
+  function pulse(time, step){
+    // simple ominous progression by shifting root every 8 beats
+    const prog = [0, 0, 3, 3, -2, -2, 5, 3];
+    const semis = prog[step % prog.length];
+    bassOsc.frequency.setValueAtTime(root * Math.pow(2, semis/12), time);
+    bassGain.gain.setValueAtTime(0.0001, time);
+    bassGain.gain.exponentialRampToValueAtTime(0.5, time+0.02);
+    bassGain.gain.exponentialRampToValueAtTime(0.02, time+beat*0.8);
+  }
+  // Tension pad (slow detuned chord)
+  [0,7,12].forEach((semi,i)=>{
+    const o=AC.createOscillator(); o.type='triangle';
+    o.frequency.value = root*2*Math.pow(2,semi/12) * (1 + (i-1)*0.004);
+    const g=AC.createGain(); g.gain.value=0.06;
+    o.connect(g); g.connect(musicGain); o.start();
+  });
+  // High arpeggio blips (sparse, spy-ish)
+  const arpFilt = AC.createBiquadFilter(); arpFilt.type='bandpass'; arpFilt.frequency.value=2400; arpFilt.Q.value=4;
+  arpFilt.connect(musicGain);
+  function blip(time, semi){
+    const o=AC.createOscillator(); o.type='square'; o.frequency.value = root*8*Math.pow(2,semi/12);
+    const g=AC.createGain(); g.gain.value=0;
+    o.connect(g); g.connect(arpFilt);
+    g.gain.setValueAtTime(0.0001,time);
+    g.gain.exponentialRampToValueAtTime(0.05,time+0.01);
+    g.gain.exponentialRampToValueAtTime(0.001,time+0.18);
+    o.start(time); o.stop(time+0.2);
+  }
+  // Scheduler
+  let step = 0;
+  let nextTime = AC.currentTime + 0.1;
+  const arpPat = [12,15,19,15,17,12,19,24];
+  setInterval(()=>{
+    const ahead = AC.currentTime + 0.5;
+    while(nextTime < ahead){
+      pulse(nextTime, step);
+      if(step % 2 === 0) blip(nextTime, arpPat[(step/2) % arpPat.length]);
+      nextTime += beat;
+      step++;
+    }
+  }, 120);
+}
+
+/* --- mute toggle --- */
+function setupMute(){
+  const btn = document.getElementById('muteBtn');
+  btn.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    soundOn = !soundOn;
+    if(musicGain) musicGain.gain.linearRampToValueAtTime(soundOn?0.5:0.0, AC.currentTime+0.2);
+    btn.textContent = soundOn ? "♪ SOUND: ON" : "♪ SOUND: OFF";
+  });
+}
+
 const AGENT = "TILFORD";
 const AGENT_ID = "CT-043";
 // May 30 2026, 3:00 PM Eastern (EDT, UTC-4)
@@ -168,7 +338,6 @@ function type(){
   if(li >= lines.length){
     // Reveal the agent ID badge on both screens
     const bw = document.getElementById('badgeWrap');
-    bw.style.display = "block";
     setTimeout(()=> bw.classList.add('show'), 60);
     if(isComplete){
       document.getElementById('albumBtn').classList.add('show');
@@ -188,19 +357,34 @@ function type(){
     obj._node = span;
   }
   if(ci < obj.t.length){
+    const ch = obj.t[ci];
     if(obj.cls === "big" && obj._node){
-      obj._node.textContent += obj.t[ci];
+      obj._node.textContent += ch;
     } else {
-      msgEl.appendChild(document.createTextNode(obj.t[ci]));
+      msgEl.appendChild(document.createTextNode(ch));
     }
+    if(ch.trim() !== "") clickSound();   // click on visible chars
     ci++;
     setTimeout(type, 34);
   } else {
+    if(obj.t.trim() !== "") dingSound();  // ding at line end
     li++; ci = 0;
     setTimeout(type, 200);
   }
 }
-window.addEventListener('load', ()=> setTimeout(type, 350));
+function beginSequence(){
+  const gate = document.getElementById('startGate');
+  gate.style.display = "none";
+  document.getElementById('muteBtn').classList.add('show');
+  initAudio();
+  if(AC.state === 'suspended') AC.resume();
+  startMusic();
+  setupMute();
+  setTimeout(type, 350);
+}
+window.addEventListener('load', ()=>{
+  document.getElementById('startGate').addEventListener('click', beginSequence, {once:true});
+});
 
 function startCountdown(){
   const cd = document.getElementById('countdown');

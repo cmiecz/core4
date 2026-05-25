@@ -173,9 +173,18 @@
     content:"_";
     animation:blink 1s steps(1) infinite;
   }
+  #muteBtn{
+    position:fixed;top:14px;right:14px;z-index:9999;
+    font-family:'Share Tech Mono',monospace;font-size:13px;letter-spacing:1px;
+    background:rgba(0,6,0,0.6);border:1px solid var(--green-dim);color:var(--green);
+    padding:6px 12px;cursor:pointer;text-shadow:0 0 6px var(--green-glow);
+    display:none;
+  }
+  #muteBtn.show{display:block;}
 </style>
 </head>
 <body>
+  <button id="muteBtn">♪ SOUND: ON</button>
 
   <!-- LOGIN TERMINAL -->
   <div class="terminal" id="login-screen">
@@ -215,6 +224,83 @@
 <audio id="beep" preload="auto"></audio>
 
 <script>
+/* ============ AUDIO ENGINE (Web Audio API) ============ */
+let AC=null, musicGain=null, soundOn=true, musicStarted=false;
+function initAudio(){
+  if(AC) return;
+  AC=new (window.AudioContext||window.webkitAudioContext)();
+  musicGain=AC.createGain(); musicGain.gain.value=0.0; musicGain.connect(AC.destination);
+}
+function clickSound(){
+  if(!AC||!soundOn) return;
+  const dur=0.018, buf=AC.createBuffer(1,AC.sampleRate*dur,AC.sampleRate), data=buf.getChannelData(0);
+  for(let i=0;i<data.length;i++){ data[i]=(Math.random()*2-1)*Math.pow(1-i/data.length,2); }
+  const src=AC.createBufferSource(); src.buffer=buf;
+  const hp=AC.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=1200;
+  const g=AC.createGain(); g.gain.value=0.16+Math.random()*0.05;
+  src.connect(hp); hp.connect(g); g.connect(AC.destination); src.start();
+}
+function dingSound(){
+  if(!AC||!soundOn) return;
+  const o=AC.createOscillator(); o.type='sine'; o.frequency.value=1760;
+  const g=AC.createGain(); g.gain.value=0.0; o.connect(g); g.connect(AC.destination);
+  const t=AC.currentTime;
+  g.gain.linearRampToValueAtTime(0.12,t+0.005);
+  g.gain.exponentialRampToValueAtTime(0.001,t+0.35);
+  o.start(t); o.stop(t+0.36);
+}
+function startMusic(){
+  if(!AC||musicStarted) return;
+  musicStarted=true;
+  musicGain.gain.linearRampToValueAtTime(0.5,AC.currentTime+2.0);
+  const root=55;
+  const bassOsc=AC.createOscillator(); bassOsc.type='sawtooth'; bassOsc.frequency.value=root;
+  const bassFilt=AC.createBiquadFilter(); bassFilt.type='lowpass'; bassFilt.frequency.value=420; bassFilt.Q.value=6;
+  const bassGain=AC.createGain(); bassGain.gain.value=0;
+  bassOsc.connect(bassFilt); bassFilt.connect(bassGain); bassGain.connect(musicGain); bassOsc.start();
+  const beat=0.34;
+  function pulse(time,step){
+    const prog=[0,0,3,3,-2,-2,5,3], semis=prog[step%prog.length];
+    bassOsc.frequency.setValueAtTime(root*Math.pow(2,semis/12),time);
+    bassGain.gain.setValueAtTime(0.0001,time);
+    bassGain.gain.exponentialRampToValueAtTime(0.5,time+0.02);
+    bassGain.gain.exponentialRampToValueAtTime(0.02,time+beat*0.8);
+  }
+  [0,7,12].forEach((semi,i)=>{
+    const o=AC.createOscillator(); o.type='triangle';
+    o.frequency.value=root*2*Math.pow(2,semi/12)*(1+(i-1)*0.004);
+    const g=AC.createGain(); g.gain.value=0.06; o.connect(g); g.connect(musicGain); o.start();
+  });
+  const arpFilt=AC.createBiquadFilter(); arpFilt.type='bandpass'; arpFilt.frequency.value=2400; arpFilt.Q.value=4; arpFilt.connect(musicGain);
+  function blip(time,semi){
+    const o=AC.createOscillator(); o.type='square'; o.frequency.value=root*8*Math.pow(2,semi/12);
+    const g=AC.createGain(); g.gain.value=0; o.connect(g); g.connect(arpFilt);
+    g.gain.setValueAtTime(0.0001,time);
+    g.gain.exponentialRampToValueAtTime(0.05,time+0.01);
+    g.gain.exponentialRampToValueAtTime(0.001,time+0.18);
+    o.start(time); o.stop(time+0.2);
+  }
+  let step=0, nextTime=AC.currentTime+0.1;
+  const arpPat=[12,15,19,15,17,12,19,24];
+  setInterval(()=>{
+    const ahead=AC.currentTime+0.5;
+    while(nextTime<ahead){
+      pulse(nextTime,step);
+      if(step%2===0) blip(nextTime,arpPat[(step/2)%arpPat.length]);
+      nextTime+=beat; step++;
+    }
+  },120);
+}
+function setupMute(){
+  const btn=document.getElementById('muteBtn');
+  btn.addEventListener('click',(e)=>{
+    e.stopPropagation();
+    soundOn=!soundOn;
+    if(musicGain) musicGain.gain.linearRampToValueAtTime(soundOn?0.5:0.0,AC.currentTime+0.2);
+    btn.textContent=soundOn?"♪ SOUND: ON":"♪ SOUND: OFF";
+  });
+}
+
 /* ===== CONFIG ===== */
 const PASSWORD = "0426";
 // Mission start: May 30 2026, 3:00 PM Eastern (EDT = UTC-4)
@@ -261,6 +347,11 @@ pw.addEventListener('input', ()=>{
     if(pw.value === PASSWORD){
       err.style.color = "var(--green)";
       err.textContent = "ACCESS GRANTED >";
+      initAudio();
+      if(AC.state === 'suspended') AC.resume();
+      startMusic();
+      document.getElementById('muteBtn').classList.add('show');
+      setupMute();
       setTimeout(showMission, 700);
     } else {
       err.style.color = "#ff4444";
@@ -293,10 +384,13 @@ function typeMission(){
   }
   const obj = missionLines[mLine];
   if(mChar < obj.t.length){
-    msgEl.textContent += obj.t[mChar];
+    const ch = obj.t[mChar];
+    msgEl.textContent += ch;
+    if(ch.trim() !== "") clickSound();
     mChar++;
     setTimeout(typeMission, 38);
   } else {
+    if(obj.t.trim() !== "") dingSound();
     mLine++; mChar = 0;
     setTimeout(typeMission, 220);
   }
