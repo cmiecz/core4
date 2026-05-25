@@ -341,9 +341,6 @@ const lines = isComplete ? postLines : preLines;
 let li = 0, ci = 0;
 function type(){
   if(li >= lines.length){
-    // Reveal the agent ID badge on both screens
-    const bw = document.getElementById('badgeWrap');
-    setTimeout(()=> bw.classList.add('show'), 60);
     if(isComplete){
       document.getElementById('albumBtn').classList.add('show');
     } else {
@@ -381,6 +378,7 @@ function beginSequence(){
   const gate = document.getElementById('startGate');
   gate.style.display = "none";
   document.getElementById('muteBtn').classList.add('show');
+  document.getElementById('badgeWrap').classList.add('show');  // show badge right away
   initAudio();
   if(AC.state === 'suspended') AC.resume();
   startMusic();
