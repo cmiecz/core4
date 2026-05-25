@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MIND FACTORY AGENCY — SECURE TERMINAL</title>
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --green:#33ff66;
+    --green-dim:#1faa42;
+    --green-glow:rgba(51,255,102,0.55);
+    --bg:#000600;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--green);
+    font-family:'Share Tech Mono', monospace;
+    overflow:hidden;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:100vh;
+  }
+  /* CRT scanline + flicker overlay */
+  body::before{
+    content:"";
+    position:fixed;
+    inset:0;
+    background:repeating-linear-gradient(
+      0deg,
+      rgba(0,0,0,0) 0px,
+      rgba(0,0,0,0) 2px,
+      rgba(0,20,0,0.35) 3px,
+      rgba(0,0,0,0) 4px
+    );
+    pointer-events:none;
+    z-index:9998;
+    animation:flicker 0.15s infinite;
+  }
+  body::after{
+    content:"";
+    position:fixed;
+    inset:0;
+    background:radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.85) 100%);
+    pointer-events:none;
+    z-index:9997;
+  }
+  @keyframes flicker{
+    0%{opacity:0.92;}
+    50%{opacity:1;}
+    100%{opacity:0.95;}
+  }
+  .terminal{
+    width:min(760px, 92vw);
+    padding:34px 30px;
+    position:relative;
+    z-index:1;
+    text-shadow:0 0 6px var(--green-glow);
+  }
+  .header-line{
+    font-family:'VT323', monospace;
+    font-size:22px;
+    letter-spacing:1px;
+    border-bottom:1px solid var(--green-dim);
+    padding-bottom:8px;
+    margin-bottom:18px;
+    display:flex;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:6px;
+  }
+  .boot-log{
+    font-size:15px;
+    line-height:1.7;
+    white-space:pre-wrap;
+    min-height:30px;
+    margin-bottom:10px;
+  }
+  .login-block{
+    margin-top:14px;
+    opacity:0;
+    transition:opacity .4s ease;
+  }
+  .login-block.show{opacity:1;}
+  .prompt-row{
+    display:flex;
+    align-items:center;
+    font-size:19px;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .prompt-label{white-space:nowrap;}
+  #pw{
+    background:transparent;
+    border:none;
+    outline:none;
+    color:var(--green);
+    font-family:'Share Tech Mono', monospace;
+    font-size:19px;
+    letter-spacing:8px;
+    text-shadow:0 0 6px var(--green-glow);
+    width:160px;
+    caret-color:transparent;
+  }
+  .cursor{
+    display:inline-block;
+    width:11px;
+    height:20px;
+    background:var(--green);
+    box-shadow:0 0 8px var(--green-glow);
+    animation:blink 1s steps(1) infinite;
+    vertical-align:middle;
+  }
+  @keyframes blink{50%{opacity:0;}}
+  .error{
+    color:#ff4444;
+    text-shadow:0 0 6px rgba(255,68,68,.6);
+    font-size:16px;
+    margin-top:10px;
+    min-height:20px;
+  }
+  .hint{
+    font-size:13px;
+    color:var(--green-dim);
+    margin-top:24px;
+    opacity:.7;
+  }
+  /* Message screen */
+  #message-screen{
+    display:none;
+    width:min(820px,94vw);
+    padding:34px 30px;
+    position:relative;
+    z-index:1;
+    text-shadow:0 0 6px var(--green-glow);
+  }
+  .msg-text{
+    font-size:clamp(17px, 2.6vw, 24px);
+    line-height:1.9;
+    white-space:pre-wrap;
+    min-height:200px;
+  }
+  .big{
+    font-family:'VT323', monospace;
+    font-size:clamp(30px,6vw,54px);
+    letter-spacing:2px;
+    display:block;
+  }
+  #countdown-wrap{
+    display:none;
+    margin-top:22px;
+  }
+  #countdown{
+    font-family:'VT323', monospace;
+    font-size:clamp(40px, 9vw, 84px);
+    letter-spacing:4px;
+    text-shadow:0 0 14px var(--green-glow);
+    line-height:1;
+  }
+  .cd-labels{
+    display:flex;
+    gap:clamp(18px,7vw,64px);
+    font-size:13px;
+    letter-spacing:3px;
+    color:var(--green-dim);
+    margin-top:6px;
+    padding-left:4px;
+  }
+  .blink-cursor::after{
+    content:"_";
+    animation:blink 1s steps(1) infinite;
+  }
+</style>
+</head>
+<body>
+
+  <!-- LOGIN TERMINAL -->
+  <div class="terminal" id="login-screen">
+    <div class="header-line">
+      <span>MIND FACTORY AGENCY</span>
+      <span>COASTAL CT DIVISION</span>
+    </div>
+    <div class="boot-log" id="boot"></div>
+
+    <div class="login-block" id="loginBlock">
+      <div class="prompt-row">
+        <span class="prompt-label">ENTER ACCESS CODE:</span>
+        <input id="pw" type="tel" inputmode="numeric" maxlength="4" autocomplete="off" autofocus>
+        <span class="cursor" id="inputCursor"></span>
+      </div>
+      <div class="error" id="err"></div>
+    </div>
+
+    <div class="hint">CLEARANCE LEVEL 04 REQUIRED // AUTHORIZED PERSONNEL ONLY</div>
+  </div>
+
+  <!-- MISSION MESSAGE -->
+  <div id="message-screen">
+    <div class="header-line">
+      <span>MIND FACTORY AGENCY</span>
+      <span>SECURE CHANNEL OPEN</span>
+    </div>
+    <div class="msg-text" id="missionMsg"></div>
+    <div id="countdown-wrap">
+      <div id="countdown">--:--:--:--</div>
+      <div class="cd-labels">
+        <span>DAYS</span><span>HRS</span><span>MIN</span><span>SEC</span>
+      </div>
+    </div>
+  </div>
+
+<audio id="beep" preload="auto"></audio>
+
+<script>
+/* ===== CONFIG ===== */
+const PASSWORD = "0426";
+// Mission start: May 30 2026, 3:00 PM Eastern (EDT = UTC-4)
+const MISSION_TIME = new Date("2026-05-30T15:00:00-04:00").getTime();
+
+/* ===== BOOT SEQUENCE ===== */
+const bootLines = [
+  "INITIALIZING SECURE TERMINAL...",
+  "ESTABLISHING ENCRYPTED UPLINK......... OK",
+  "VERIFYING DIVISION CREDENTIALS........ OK",
+  "LOADING OPERATION: COASTAL CT ADVENTURE",
+  "STATUS: AWAITING AGENT AUTHENTICATION",
+  ""
+];
+const bootEl = document.getElementById('boot');
+const loginBlock = document.getElementById('loginBlock');
+const pw = document.getElementById('pw');
+const err = document.getElementById('err');
+
+let bIdx = 0, cIdx = 0;
+function typeBoot(){
+  if(bIdx >= bootLines.length){
+    loginBlock.classList.add('show');
+    pw.focus();
+    return;
+  }
+  const line = bootLines[bIdx];
+  if(cIdx < line.length){
+    bootEl.textContent += line[cIdx];
+    cIdx++;
+    setTimeout(typeBoot, 14);
+  } else {
+    bootEl.textContent += "\n";
+    bIdx++; cIdx = 0;
+    setTimeout(typeBoot, 180);
+  }
+}
+window.addEventListener('load', ()=> setTimeout(typeBoot, 400));
+
+/* ===== LOGIN HANDLING ===== */
+pw.addEventListener('input', ()=>{
+  err.textContent = "";
+  if(pw.value.length === 4){
+    if(pw.value === PASSWORD){
+      err.style.color = "var(--green)";
+      err.textContent = "ACCESS GRANTED >";
+      setTimeout(showMission, 700);
+    } else {
+      err.style.color = "#ff4444";
+      err.textContent = "ACCESS DENIED // INVALID CODE";
+      pw.value = "";
+    }
+  }
+});
+// keep focus on tap (mobile)
+document.getElementById('login-screen').addEventListener('click', ()=> pw.focus());
+
+/* ===== MISSION MESSAGE ===== */
+const missionLines = [
+  {t:"Welcome, Agents.\n", cls:""},
+  {t:"The CORE 04 has officially been activated.\n", cls:""},
+  {t:"\nYour mission begins in:\n", cls:""}
+];
+function showMission(){
+  document.getElementById('login-screen').style.display = "none";
+  document.getElementById('message-screen').style.display = "block";
+  typeMission();
+}
+const msgEl = document.getElementById('missionMsg');
+let mLine = 0, mChar = 0;
+function typeMission(){
+  if(mLine >= missionLines.length){
+    document.getElementById('countdown-wrap').style.display = "block";
+    startCountdown();
+    return;
+  }
+  const obj = missionLines[mLine];
+  if(mChar < obj.t.length){
+    msgEl.textContent += obj.t[mChar];
+    mChar++;
+    setTimeout(typeMission, 38);
+  } else {
+    mLine++; mChar = 0;
+    setTimeout(typeMission, 220);
+  }
+}
+
+/* ===== COUNTDOWN ===== */
+function startCountdown(){
+  const cd = document.getElementById('countdown');
+  function tick(){
+    const now = Date.now();
+    let diff = MISSION_TIME - now;
+    if(diff <= 0){
+      cd.textContent = "00:00:00:00";
+      cd.innerHTML = "MISSION LIVE";
+      document.querySelector('.cd-labels').style.display = "none";
+      return;
+    }
+    const d = Math.floor(diff/86400000); diff -= d*86400000;
+    const h = Math.floor(diff/3600000);  diff -= h*3600000;
+    const m = Math.floor(diff/60000);    diff -= m*60000;
+    const s = Math.floor(diff/1000);
+    const p = n => String(n).padStart(2,'0');
+    cd.textContent = `${p(d)}:${p(h)}:${p(m)}:${p(s)}`;
+  }
+  tick();
+  setInterval(tick, 1000);
+}
+</script>
+</body>
+</html>
