@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MFA // AGENT TILFORD</title>
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --green:#33ff66;
+    --green-dim:#1faa42;
+    --green-glow:rgba(51,255,102,0.55);
+    --bg:#000600;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{min-height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--green);
+    font-family:'Share Tech Mono', monospace;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:100vh;
+    padding:20px;
+  }
+  body::before{
+    content:"";
+    position:fixed;
+    inset:0;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0px,rgba(0,0,0,0) 2px,rgba(0,20,0,0.35) 3px,rgba(0,0,0,0) 4px);
+    pointer-events:none;z-index:9998;animation:flicker .15s infinite;
+  }
+  body::after{
+    content:"";position:fixed;inset:0;
+    background:radial-gradient(ellipse at center,rgba(0,0,0,0) 55%,rgba(0,0,0,0.85) 100%);
+    pointer-events:none;z-index:9997;
+  }
+  @keyframes flicker{0%{opacity:.92;}50%{opacity:1;}100%{opacity:.95;}}
+  .screen{
+    width:min(820px,94vw);
+    position:relative;z-index:1;
+    text-shadow:0 0 6px var(--green-glow);
+    padding:30px 26px;
+  }
+  .header-line{
+    font-family:'VT323',monospace;font-size:22px;letter-spacing:1px;
+    border-bottom:1px solid var(--green-dim);padding-bottom:8px;margin-bottom:20px;
+    display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;
+  }
+  .msg-text{font-size:clamp(16px,2.5vw,22px);line-height:1.9;white-space:pre-wrap;min-height:120px;}
+  .big{font-family:'VT323',monospace;font-size:clamp(32px,7vw,60px);letter-spacing:2px;display:block;}
+  .agent-tag{color:var(--green-dim);letter-spacing:3px;font-size:14px;margin-bottom:6px;}
+  #countdown-wrap{display:none;margin-top:22px;}
+  #countdown{font-family:'VT323',monospace;font-size:clamp(40px,9vw,84px);letter-spacing:4px;text-shadow:0 0 14px var(--green-glow);line-height:1;}
+  .cd-labels{display:flex;gap:clamp(18px,7vw,64px);font-size:13px;letter-spacing:3px;color:var(--green-dim);margin-top:6px;padding-left:4px;}
+  .album-btn{
+    display:none;margin-top:30px;
+    font-family:'VT323',monospace;font-size:28px;letter-spacing:2px;
+    background:transparent;border:2px solid var(--green);color:var(--green);
+    padding:14px 34px;cursor:pointer;text-decoration:none;
+    box-shadow:0 0 14px var(--green-glow);transition:.2s;
+  }
+  .album-btn:hover{background:var(--green);color:#000;}
+  .album-btn.show{display:inline-block;}
+  .badge-wrap{
+    display:none;
+    margin-top:30px;
+    opacity:0;
+    transition:opacity 1.2s ease;
+  }
+  .badge-wrap.show{display:block;opacity:1;}
+  .badge-label{
+    font-family:'VT323',monospace;font-size:20px;letter-spacing:3px;
+    color:var(--green-dim);margin-bottom:10px;
+  }
+  .badge-frame{
+    position:relative;
+    display:inline-block;
+    max-width:340px;width:80%;
+    border:2px solid var(--green);
+    box-shadow:0 0 18px var(--green-glow), inset 0 0 18px rgba(51,255,102,0.15);
+    padding:6px;
+    background:#000;
+  }
+  .badge-frame img{display:block;width:100%;height:auto;}
+  /* corner brackets */
+  .badge-frame::before,.badge-frame::after{
+    content:"";position:absolute;width:22px;height:22px;border:2px solid var(--green);
+  }
+  .badge-frame::before{top:-2px;left:-2px;border-right:none;border-bottom:none;}
+  .badge-frame::after{bottom:-2px;right:-2px;border-left:none;border-top:none;}
+  /* scanning line sweep */
+  .scanline{
+    position:absolute;left:0;right:0;height:3px;
+    background:var(--green);box-shadow:0 0 12px var(--green-glow);
+    top:0;opacity:.85;
+    animation:scan 3s ease-in-out infinite;
+    pointer-events:none;
+  }
+  @keyframes scan{
+    0%{top:0%;}50%{top:98%;}100%{top:0%;}
+  }
+</style>
+</head>
+<body>
+  <div class="screen">
+    <div class="header-line">
+      <span>MIND FACTORY AGENCY</span>
+      <span>AGENT TILFORD // CT-043</span>
+    </div>
+    <div class="msg-text" id="msg"></div>
+
+    <!-- Pre-mission countdown -->
+    <div id="countdown-wrap">
+      <div id="countdown">--:--:--:--</div>
+      <div class="cd-labels"><span>DAYS</span><span>HRS</span><span>MIN</span><span>SEC</span></div>
+    </div>
+
+    <!-- Agent ID badge -->
+    <div class="badge-wrap" id="badgeWrap">
+      <div class="badge-label">► AGENT ID CREDENTIAL</div>
+      <div class="badge-frame">
+        <div class="scanline"></div>
+        <img src="../badges/tilford.png" alt="Agent TILFORD ID badge">
+      </div>
+    </div>
+
+    <!-- Post-mission album button -->
+    <a class="album-btn" id="albumBtn" href="https://photos.app.goo.gl/E5QZt88VVq8JuwR98" target="_blank" rel="noopener">► OPEN MISSION FILES</a>
+  </div>
+
+<script>
+const AGENT = "TILFORD";
+const AGENT_ID = "CT-043";
+// May 30 2026, 3:00 PM Eastern (EDT, UTC-4)
+const MISSION_TIME = new Date("2026-05-30T15:00:00-04:00").getTime();
+// When the page flips to MISSION COMPLETE and the photo album unlocks.
+// Currently 4:01 PM Eastern on May 30.
+const COMPLETE_TIME = new Date("2026-05-30T16:01:00-04:00").getTime();
+
+const msgEl = document.getElementById('msg');
+const now = Date.now();
+
+/* ---------- BEFORE / DURING MISSION: standby + countdown ---------- */
+const preLines = [
+  {t:"ACCESS GRANTED\n", cls:"big"},
+  {t:"\nWelcome, Agent " + AGENT + ".\n", cls:""},
+  {t:"AGENT ID: " + AGENT_ID + "  //  CLEARANCE LEVEL 04\n", cls:""},
+  {t:"Your mission begins in:\n", cls:""}
+];
+
+/* ---------- AFTER MISSION: mission complete + album ---------- */
+const postLines = [
+  {t:"MISSION COMPLETE\n", cls:"big"},
+  {t:"\nWelcome back, CORE 04.\n", cls:""},
+  {t:"AGENT " + AGENT + "  //  ID: " + AGENT_ID + "\n", cls:""},
+  {t:"Operation LEVEL 10 has officially concluded.\n", cls:""},
+  {t:"\nThe Mind Factory Agency recognizes the teamwork, intelligence, and determination demonstrated throughout the mission.\n", cls:""},
+  {t:"\nClassified mission files and memories have now been unlocked.\n", cls:""}
+];
+
+const lines = (now >= COMPLETE_TIME) ? postLines : preLines;
+const isComplete = (now >= COMPLETE_TIME);
+
+let li = 0, ci = 0;
+function type(){
+  if(li >= lines.length){
+    // Reveal the agent ID badge on both screens
+    const bw = document.getElementById('badgeWrap');
+    bw.style.display = "block";
+    setTimeout(()=> bw.classList.add('show'), 60);
+    if(isComplete){
+      document.getElementById('albumBtn').classList.add('show');
+    } else {
+      document.getElementById('countdown-wrap').style.display = "block";
+      startCountdown();
+    }
+    return;
+  }
+  const obj = lines[li];
+  // render "big" lines with class
+  if(ci === 0 && obj.cls === "big"){
+    // type into a span so we can style it
+    const span = document.createElement('span');
+    span.className = "big";
+    msgEl.appendChild(span);
+    obj._node = span;
+  }
+  if(ci < obj.t.length){
+    if(obj.cls === "big" && obj._node){
+      obj._node.textContent += obj.t[ci];
+    } else {
+      msgEl.appendChild(document.createTextNode(obj.t[ci]));
+    }
+    ci++;
+    setTimeout(type, 34);
+  } else {
+    li++; ci = 0;
+    setTimeout(type, 200);
+  }
+}
+window.addEventListener('load', ()=> setTimeout(type, 350));
+
+function startCountdown(){
+  const cd = document.getElementById('countdown');
+  function tick(){
+    let diff = MISSION_TIME - Date.now();
+    if(diff <= 0){
+      cd.innerHTML = "MISSION LIVE";
+      document.querySelector('.cd-labels').style.display = "none";
+      return;
+    }
+    const d=Math.floor(diff/86400000);diff-=d*86400000;
+    const h=Math.floor(diff/3600000);diff-=h*3600000;
+    const m=Math.floor(diff/60000);diff-=m*60000;
+    const s=Math.floor(diff/1000);
+    const p=n=>String(n).padStart(2,'0');
+    cd.textContent=`${p(d)}:${p(h)}:${p(m)}:${p(s)}`;
+  }
+  tick();
+  setInterval(tick,1000);
+}
+</script>
+</body>
+</html>
