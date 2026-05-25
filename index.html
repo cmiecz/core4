@@ -13,16 +13,18 @@
     --bg:#000600;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
-  html,body{height:100%;}
+  html,body{min-height:100%;}
   body{
     background:var(--bg);
     color:var(--green);
     font-family:'Share Tech Mono', monospace;
-    overflow:hidden;
+    overflow-y:auto;
+    overflow-x:hidden;
     display:flex;
     align-items:center;
     justify-content:center;
     min-height:100vh;
+    padding:24px 0;
   }
   /* CRT scanline + flicker overlay */
   body::before{
@@ -131,27 +133,65 @@
   /* Message screen */
   #message-screen{
     display:none;
-    width:min(820px,94vw);
-    padding:34px 30px;
+    width:min(1050px,94vw);
+    padding:24px 30px;
     position:relative;
     z-index:1;
     text-shadow:0 0 6px var(--green-glow);
   }
-  .msg-text{
-    font-size:clamp(17px, 2.6vw, 24px);
-    line-height:1.9;
-    white-space:pre-wrap;
-    min-height:200px;
+  /* scrolling transmission frame (like a terminal window) */
+  .transmission-frame{
+    border:1px solid var(--green-dim);
+    box-shadow:0 0 14px rgba(51,255,102,0.15), inset 0 0 20px rgba(51,255,102,0.06);
+    background:rgba(0,20,0,0.25);
+    margin-top:14px;
+    position:relative;
   }
+  .frame-label{
+    font-family:'Share Tech Mono', monospace;
+    font-size:12px;letter-spacing:2px;
+    color:var(--green-dim);
+    border-bottom:1px solid var(--green-dim);
+    padding:7px 14px;
+    background:rgba(0,20,0,0.4);
+  }
+  .msg-text{
+    font-size:clamp(16px, 2vw, 21px);
+    line-height:1.7;
+    white-space:pre-wrap;
+    padding:22px 26px;
+    height:clamp(360px, 56vh, 560px);
+    overflow-y:auto;
+    scrollbar-width:thin;
+    scrollbar-color:var(--green-dim) transparent;
+  }
+  .msg-text::-webkit-scrollbar{width:8px;}
+  .msg-text::-webkit-scrollbar-thumb{background:var(--green-dim);border-radius:4px;}
+  .msg-text::-webkit-scrollbar-track{background:transparent;}
   .big{
     font-family:'VT323', monospace;
-    font-size:clamp(30px,6vw,54px);
+    font-size:clamp(28px,5vw,48px);
     letter-spacing:2px;
     display:block;
   }
+  .msg-text .alert{
+    color:#ff5544;
+    text-shadow:0 0 8px rgba(255,85,68,.6);
+    letter-spacing:1px;
+  }
+  .msg-text .big{
+    color:var(--green);
+    text-shadow:0 0 14px var(--green-glow);
+  }
   #countdown-wrap{
     display:none;
-    margin-top:22px;
+    margin-top:18px;
+  }
+  .cd-heading{
+    font-family:'Share Tech Mono', monospace;
+    font-size:clamp(14px,2vw,18px);
+    letter-spacing:2px;
+    margin-bottom:6px;
   }
   #countdown{
     font-family:'VT323', monospace;
@@ -232,8 +272,12 @@
       <span>CORE 04 AGENCY</span>
       <span>SECURE CHANNEL OPEN</span>
     </div>
-    <div class="msg-text" id="missionMsg"></div>
+    <div class="transmission-frame">
+      <div class="frame-label">// INCOMING TRANSMISSION — DECRYPTED</div>
+      <div class="msg-text" id="missionMsg"></div>
+    </div>
     <div id="countdown-wrap">
+      <div class="cd-heading">YOUR MISSION BEGINS IN:</div>
       <div id="countdown">--:--:--:--</div>
       <div class="cd-labels">
         <span>DAYS</span><span>HRS</span><span>MIN</span><span>SEC</span>
@@ -397,7 +441,22 @@ document.getElementById('login-screen').addEventListener('click', ()=> pw.focus(
 const missionLines = [
   {t:"Welcome, Agents.\n", cls:""},
   {t:"The CORE 04 has officially been activated.\n", cls:""},
-  {t:"\nYour mission begins in:\n", cls:""}
+  {t:"\n>> INCOMING TRANSMISSION...\n", cls:"alert"},
+  {t:">> SIGNAL SCRAMBLED // DECODING", cls:"alert", dots:true},
+  {t:"\n\nThe transmission that arrives at the Core 04 Agency is scrambled.\n", cls:""},
+  {t:"Our agents decode it. Two words come through:\n", cls:""},
+  {t:"\n   \"HELP US.\"\n", cls:"big"},
+  {t:"\nThe rest is static, yelling, and a series of bizarre sounds.\n", cls:""},
+  {t:"\nSomething has happened in a remote section of Colorado, inside a high-security biohazard lab.\n", cls:""},
+  {t:"\nHundreds of labs across the United States handle dangerous biological materials. Each is assigned a safety level: BSL-1, BSL-2, BSL-3, or BSL-4.\n", cls:""},
+  {t:"\nNo lab with a biosafety level higher than 4 has ever existed.\n", cls:""},
+  {t:"According to official documentation, there is no such thing as biosafety level 5.\n", cls:""},
+  {t:"\nThe transmission carries a tag:\n", cls:""},
+  {t:"\n   UNKNOWN ENTITY // BSL-5\n", cls:"alert"},
+  {t:"\n>> MISSION OBJECTIVE\n", cls:"alert"},
+  {t:"Infiltrate the lab. Determine what happened inside. Isolate any threat to the outside world.\n", cls:""},
+  {t:"\nAct fast. Time is running out.\n", cls:""},
+  {t:"Accept this mission before it's too late.\n", cls:""}
 ];
 function showMission(){
   document.getElementById('login-screen').style.display = "none";
@@ -406,6 +465,15 @@ function showMission(){
 }
 const msgEl = document.getElementById('missionMsg');
 let mLine = 0, mChar = 0;
+let stickToBottom = true;
+// If the user scrolls up to re-read, stop auto-scrolling; if they return to bottom, resume
+msgEl.addEventListener('scroll', ()=>{
+  const nearBottom = msgEl.scrollHeight - msgEl.scrollTop - msgEl.clientHeight < 40;
+  stickToBottom = nearBottom;
+});
+function keepInView(){
+  if(stickToBottom) msgEl.scrollTop = msgEl.scrollHeight;
+}
 function typeMission(){
   if(mLine >= missionLines.length){
     document.getElementById('countdown-wrap').style.display = "block";
@@ -413,17 +481,50 @@ function typeMission(){
     return;
   }
   const obj = missionLines[mLine];
+  // Create a styled span the first time we touch this line
+  if(mChar === 0 && (obj.cls === "alert" || obj.cls === "big")){
+    const span = document.createElement('span');
+    span.className = obj.cls;
+    msgEl.appendChild(span);
+    obj._node = span;
+  }
   if(mChar < obj.t.length){
     const ch = obj.t[mChar];
-    msgEl.textContent += ch;
+    if(obj._node){ obj._node.textContent += ch; }
+    else { msgEl.appendChild(document.createTextNode(ch)); }
     if(ch.trim() !== "") clickSound();
     mChar++;
-    setTimeout(typeMission, 38);
+    keepInView();   // continuously track the newest text
+    // big dramatic line types slower; alerts a touch slower; normal text quick
+    const speed = (obj.cls === "big") ? 80 : (obj.cls === "alert" ? 26 : 18);
+    setTimeout(typeMission, speed);
   } else {
-    if(obj.t.trim() !== "") dingSound();
-    mLine++; mChar = 0;
-    setTimeout(typeMission, 220);
+    // optional animated dots after a line (e.g. DECODING...)
+    if(obj.dots && !obj._dotsDone){
+      animateDots(obj, ()=>{ obj._dotsDone = true; advanceLine(obj); });
+      return;
+    }
+    advanceLine(obj);
   }
+}
+function advanceLine(obj){
+  if(obj.t.trim() !== "") dingSound();
+  keepInView();
+  // longer dramatic pause after big / alert lines
+  const pause = (obj.cls === "big") ? 700 : (obj.cls === "alert" ? 450 : 240);
+  mLine++; mChar = 0;
+  setTimeout(typeMission, pause);
+}
+function animateDots(obj, done){
+  let n = 0;
+  const target = obj._node || msgEl;
+  const iv = setInterval(()=>{
+    target.textContent += ".";
+    clickSound();
+    keepInView();
+    n++;
+    if(n >= 6){ clearInterval(iv); setTimeout(done, 400); }
+  }, 260);
 }
 
 /* ===== COUNTDOWN ===== */
