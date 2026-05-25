@@ -181,9 +181,29 @@
     display:none;
   }
   #muteBtn.show{display:block;}
+  #startGate{
+    position:fixed;inset:0;z-index:9999;
+    display:flex;align-items:center;justify-content:center;flex-direction:column;
+    background:rgba(0,6,0,0.96);cursor:pointer;text-shadow:0 0 8px var(--green-glow);
+  }
+  #startGate .gate-title{
+    font-family:'VT323',monospace;font-size:clamp(34px,8vw,64px);letter-spacing:3px;
+    animation:gateblink 1.2s steps(1) infinite;
+  }
+  #startGate .gate-sub{
+    font-family:'Share Tech Mono',monospace;font-size:15px;letter-spacing:2px;
+    color:var(--green-dim);margin-top:14px;
+  }
+  @keyframes gateblink{50%{opacity:.25;}}
 </style>
 </head>
 <body>
+  <div id="startGate">
+    <div class="gate-inner" style="text-align:center;">
+      <div class="gate-title">► TAP TO BEGIN</div>
+      <div class="gate-sub">SECURE AUDIO CHANNEL // TAP TO INITIALIZE</div>
+    </div>
+  </div>
   <button id="muteBtn">♪ SOUND: ON</button>
 
   <!-- LOGIN TERMINAL -->
@@ -329,16 +349,30 @@ function typeBoot(){
   }
   const line = bootLines[bIdx];
   if(cIdx < line.length){
-    bootEl.textContent += line[cIdx];
+    const ch = line[cIdx];
+    bootEl.textContent += ch;
+    if(ch.trim() !== "") clickSound();
     cIdx++;
     setTimeout(typeBoot, 14);
   } else {
     bootEl.textContent += "\n";
+    if(line.trim() !== "") dingSound();
     bIdx++; cIdx = 0;
     setTimeout(typeBoot, 180);
   }
 }
-window.addEventListener('load', ()=> setTimeout(typeBoot, 400));
+function beginSequence(){
+  document.getElementById('startGate').style.display = "none";
+  document.getElementById('muteBtn').classList.add('show');
+  initAudio();
+  if(AC.state === 'suspended') AC.resume();
+  startMusic();
+  setupMute();
+  setTimeout(typeBoot, 400);
+}
+window.addEventListener('load', ()=>{
+  document.getElementById('startGate').addEventListener('click', beginSequence, {once:true});
+});
 
 /* ===== LOGIN HANDLING ===== */
 pw.addEventListener('input', ()=>{
@@ -347,11 +381,7 @@ pw.addEventListener('input', ()=>{
     if(pw.value === PASSWORD){
       err.style.color = "var(--green)";
       err.textContent = "ACCESS GRANTED >";
-      initAudio();
-      if(AC.state === 'suspended') AC.resume();
-      startMusic();
-      document.getElementById('muteBtn').classList.add('show');
-      setupMute();
+      if(AC && AC.state === 'suspended') AC.resume();
       setTimeout(showMission, 700);
     } else {
       err.style.color = "#ff4444";

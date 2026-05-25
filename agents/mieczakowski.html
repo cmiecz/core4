@@ -330,8 +330,13 @@ const postLines = [
   {t:"\nClassified mission files and memories have now been unlocked.\n", cls:""}
 ];
 
-const lines = (now >= COMPLETE_TIME) ? postLines : preLines;
-const isComplete = (now >= COMPLETE_TIME);
+// Preview override: add ?preview=done (mission complete) or ?preview=pre (countdown) to the URL
+const _params = new URLSearchParams(location.search);
+const _pv = _params.get('preview');
+const isComplete = (_pv === 'done') ? true
+                 : (_pv === 'pre')  ? false
+                 : (now >= COMPLETE_TIME);
+const lines = isComplete ? postLines : preLines;
 
 let li = 0, ci = 0;
 function type(){
