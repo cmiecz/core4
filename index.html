@@ -102,9 +102,9 @@
     color:var(--green);
     font-family:'Share Tech Mono', monospace;
     font-size:19px;
-    letter-spacing:8px;
+    letter-spacing:3px;
     text-shadow:0 0 6px var(--green-glow);
-    width:160px;
+    width:220px;
     caret-color:transparent;
   }
   .cursor{
@@ -257,7 +257,7 @@
     <div class="login-block" id="loginBlock">
       <div class="prompt-row">
         <span class="prompt-label">ENTER ACCESS CODE:</span>
-        <input id="pw" type="tel" inputmode="numeric" maxlength="4" autocomplete="off" autofocus>
+        <input id="pw" type="text" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" autocomplete="off" autofocus>
         <span class="cursor" id="inputCursor"></span>
       </div>
       <div class="error" id="err"></div>
@@ -366,7 +366,7 @@ function setupMute(){
 }
 
 /* ===== CONFIG ===== */
-const PASSWORD = "0426";
+const PASSWORD = "level10";
 // Mission start: May 30 2026, 3:00 PM Eastern (EDT = UTC-4)
 const MISSION_TIME = new Date("2026-05-30T15:00:00-04:00").getTime();
 
@@ -419,20 +419,21 @@ window.addEventListener('load', ()=>{
 });
 
 /* ===== LOGIN HANDLING ===== */
-pw.addEventListener('input', ()=>{
-  err.textContent = "";
-  if(pw.value.length === 4){
-    if(pw.value === PASSWORD){
-      err.style.color = "var(--green)";
-      err.textContent = "ACCESS GRANTED >";
-      if(AC && AC.state === 'suspended') AC.resume();
-      setTimeout(showMission, 700);
-    } else {
-      err.style.color = "#ff4444";
-      err.textContent = "ACCESS DENIED // INVALID CODE";
-      pw.value = "";
-    }
+function checkPassword(){
+  if(pw.value.trim().toLowerCase() === PASSWORD.toLowerCase()){
+    err.style.color = "var(--green)";
+    err.textContent = "ACCESS GRANTED >";
+    if(AC && AC.state === 'suspended') AC.resume();
+    setTimeout(showMission, 700);
+  } else if(pw.value.length > 0) {
+    err.style.color = "#ff4444";
+    err.textContent = "ACCESS DENIED // INVALID CODE";
+    pw.value = "";
   }
+}
+pw.addEventListener('input', ()=>{ err.textContent = ""; });
+pw.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){ e.preventDefault(); checkPassword(); }
 });
 // keep focus on tap (mobile)
 document.getElementById('login-screen').addEventListener('click', ()=> pw.focus());
